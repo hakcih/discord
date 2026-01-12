@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Crédits — Turko</title>
+<style>
+  :root{
+    --bg1:#071029;
+    --bg2:#0b2546;
+    --card:rgba(255,255,255,0.03);
+    --accent:#ffd27a;
+    --text:#eaf4ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;font-family:Inter,system-ui,Arial,sans-serif;background:linear-gradient(180deg,var(--bg1),var(--bg2));color:var(--text);display:flex;align-items:center;justify-content:center}
+  .stage{
+    width:min(920px,94vw);
+    height:min(640px,86vh);
+    border-radius:12px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border:1px solid rgba(255,255,255,0.04);
+    box-shadow:0 20px 60px rgba(0,0,0,0.6);
+    overflow:hidden;
+    position:relative;
+    padding:24px;
+  }
+
+  .viewport{
+    position:absolute;
+    inset:24px;
+    overflow:hidden;
+  }
+
+  .column{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:18px;
+    will-change:transform;
+  }
+
+  .line{
+    width:100%;
+    text-align:center;
+    font-weight:800;
+    letter-spacing:0.4px;
+    font-size:1.05rem;
+    color:var(--text);
+  }
+
+  .phrase{
+    font-size:1.6rem;
+    color:var(--accent);
+    font-weight:900;
+  }
+
+  .name{
+    font-size:1.1rem;
+    color:#bfe6ff;
+    font-weight:800;
+  }
+
+  .final{
+    margin-top:18px;
+    font-size:2.4rem;
+    color:var(--accent);
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:1.4px;
+  }
+
+  /* animation keyframes will be injected by JS to match content height */
+  @media (prefers-reduced-motion: reduce){
+    .column{animation:none !important}
+  }
+
+  @media(max-width:520px){
+    .phrase{font-size:1.2rem}
+    .final{font-size:1.6rem}
+  }
+</style>
+</head>
+<body>
+  <div class="stage" role="region" aria-label="Crédits">
+    <div class="viewport" id="viewport">
+      <div id="blockA" class="column" aria-hidden="false"></div>
+      <div id="blockB" class="column" aria-hidden="true"></div>
+    </div>
+  </div>
+
+<script>
+  // Exact phrase requested
+  const phrase = "javais pas  didée jai fait un truc aleatoir donnez moi des idee svp";
+
+  // Build content: repeat the phrase and a few short supporting lines for rhythm
+  const contentLines = [
+    {type:'phrase', text: phrase},
+    {type:'name', text: 'turko'},
+    {type:'line', text: 'un peu de code'},
+    {type:'line', text: 'quelques beats'},
+    {type:'line', text: 'des essais aléatoires'},
+    {type:'line', text: 'merci d\'avoir regardé'},
+    {type:'final', text: 'SAYER JARRETE'}
+  ];
+
+  const blockA = document.getElementById('blockA');
+  const blockB = document.getElementById('blockB');
+
+  function buildBlock(target){
+    target.innerHTML = '';
+    // top spacer so content starts below the viewport
+    const spacerTop = document.createElement('div');
+    spacerTop.style.height = '40vh';
+    target.appendChild(spacerTop);
+
+    // repeat content several times to create a long scroll
+    for(let r=0; r<6; r++){
+      contentLines.forEach(item => {
+        const el = document.createElement('div');
+        el.className = 'line';
+        if(item.type === 'phrase'){ el.classList.add('phrase'); el.textContent = item.text; }
+        else if(item.type === 'name'){ el.classList.add('name'); el.textContent = item.text; }
+        else if(item.type === 'final'){ el.classList.add('final'); el.textContent = item.text; }
+        else { el.textContent = item.text; }
+        target.appendChild(el);
+      });
+    }
+
+    // bottom spacer so the loop looks smooth
+    const spacerBottom = document.createElement('div');
+    spacerBottom.style.height = '40vh';
+    target.appendChild(spacerBottom);
+  }
+
+  buildBlock(blockA);
+  buildBlock(blockB);
+
+  // Create animation dynamically so it matches the block height
+  let speed = 1; // multiplier (1 = normal)
+  function applyAnimation(){
+    const h = blockA.getBoundingClientRect().height;
+    const baseSeconds = Math.max(8, h / 120); // base duration scales with height
+    const duration = baseSeconds / speed;
+    const animName = 'scrollAnim';
+
+    // remove previous style if exists
+    const styleId = 'scrollStyle';
+    let styleEl = document.getElementById(styleId);
+    if(styleEl) styleEl.remove();
+
+    styleEl = document.createElement('style');
+    styleEl.id = styleId;
+    styleEl.textContent = `
+      @keyframes ${animName} {
+        0% { transform: translateY(0); }
+        100% { transform: translateY(-${h}px); }
+      }
+    `;
+    document.head.appendChild(styleEl);
+
+    const anim = `${animName} ${duration}s linear infinite`;
+    blockA.style.animation = anim;
+    blockB.style.animation = anim;
+
+    // position blockB directly after blockA for seamless loop
+    blockB.style.transform = 'translateY(' + h + 'px)';
+  }
+
+  applyAnimation();
+
+  // Simple keyboard controls: space to pause/resume, up/down to change speed
+  let paused = false;
+  document.addEventListener('keydown', (e) => {
+    if(e.key === ' '){
+      e.preventDefault();
+      paused = !paused;
+      blockA.style.animationPlayState = paused ? 'paused' : 'running';
+      blockB.style.animationPlayState = paused ? 'paused' : 'running';
+    } else if(e.key === 'ArrowUp'){
+      speed = Math.min(4, speed + 0.25);
+      applyAnimation();
+    } else if(e.key === 'ArrowDown'){
+      speed = Math.max(0.25, speed - 0.25);
+      applyAnimation();
+    }
+  });
+
+  // Recalculate on resize
+  window.addEventListener('resize', () => applyAnimation());
+</script>
+</body>
+</html>

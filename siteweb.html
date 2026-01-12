@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Drum Grid</title>
+
+<style>
+body {
+    background:#0a0a0a;
+    color:white;
+    font-family:Arial, sans-serif;
+    text-align:center;
+}
+
+.controls {
+    margin:20px;
+}
+
+.grid {
+    display:grid;
+    grid-template-columns: 80px repeat(16, 32px);
+    gap:6px;
+    justify-content:center;
+}
+
+.track {
+    font-size:12px;
+    text-align:right;
+    padding-right:6px;
+}
+
+.step {
+    width:32px;
+    height:32px;
+    background:#222;
+    cursor:pointer;
+}
+
+.step.active {
+    background:#1db954;
+}
+
+.step.playing {
+    outline:2px solid white;
+}
+
+#status {
+    margin-top:10px;
+    font-weight:bold;
+}
+</style>
+</head>
+
+<body>
+
+<h2>🎛 Drum Grid</h2>
+
+<div class="controls">
+    <button id="play">▶ Play</button>
+    BPM <input type="number" id="bpm" value="120">
+</div>
+
+<div class="grid" id="grid"></div>
+
+<!-- BOUTON FINISH IA -->
+<div style="margin-top:30px;">
+    <button id="finish">🤖 Finish – Évaluation IA</button>
+    <div id="status"></div>
+</div>
+
+<script>
+/* ---------- SONS ---------- */
+const tracks = [
+    { name:"Kick", file:"asset/Kick VY 48.wav" },
+    { name:"Snare", file:"asset/Snare VY 08.wav" },
+    { name:"Snare 2", file:"asset/Snare VY 53.wav" },
+    { name:"Hat", file:"asset/Hat VY 32.wav" },
+    { name:"Bass", file:"asset/Free Bass Samples - 020.wav" }
+];
+
+const steps = 16;
+let stepIndex = 0;
+let playing = false;
+let timer;
+
+const grid = document.getElementById("grid");
+
+/* ---------- CRÉATION GRILLE ---------- */
+tracks.forEach(track => {
+    const label = document.createElement("div");
+    label.textContent = track.name;
+    label.className = "track";
+    grid.appendChild(label);
+
+    for (let i = 0; i < steps; i++) {
+        const cell = document.createElement("div");
+        cell.className = "step";
+        cell.addEventListener("click", () => {
+            cell.classList.toggle("active");
+        });
+        grid.appendChild(cell);
+    }
+});
+
+const allSteps = document.querySelectorAll(".step");
+
+/* ---------- LECTURE ---------- */
+function playStep() {
+    allSteps.forEach(s => s.classList.remove("playing"));
+
+    tracks.forEach((track, t) => {
+        const index = t * steps + stepIndex;
+        const cell = allSteps[index];
+
+        cell.classList.add("playing");
+
+        if (cell.classList.contains("active")) {
+            const audio = new Audio(track.file);
+            audio.currentTime = 0;
+            audio.play();
+        }
+    });
+
+    stepIndex = (stepIndex + 1) % steps;
+}
+
+document.getElementById("play").onclick = () => {
+    if (!playing) {
+        const bpm = document.getElementById("bpm").value;
+        const interval = (60 / bpm) * 1000 / 4;
+        timer = setInterval(playStep, interval);
+        playing = true;
+        play.textContent = "⏸ Stop";
+    } else {
+        clearInterval(timer);
+        playing = false;
+        stepIndex = 0;
+        play.textContent = "▶ Play";
+        allSteps.forEach(s => s.classList.remove("playing"));
+    }
+};
+
+/* ---------- FINISH IA (FAKE) ---------- */
+const finishBtn = document.getElementById("finish");
+const status = document.getElementById("status");
+
+finishBtn.onclick = () => {
+    status.textContent = "⏳ Analyse IA du beat...";
+    finishBtn.disabled = true;
+
+    setTimeout(() => {
+        status.textContent = "pue ca grand mere ";
+    }, 2000);
+
+    setTimeout(() => {
+        window.location.href = "C:/Users/fatih/Desktop/htmldiscord/2.html";
+    }, 3500);
+};
+</script>
+
+</body>
+</html>
