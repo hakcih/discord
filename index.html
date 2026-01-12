@@ -27,7 +27,6 @@
   .fallback{margin-top:12px;color:#bfe6ff}
   a.fallback-link{color:var(--accent2);font-weight:800;text-decoration:none}
 
-  /* MORSE HIGHLIGHT */
   .morse {
     display:inline-block;
     padding:10px 12px;
@@ -47,7 +46,6 @@
     box-shadow:0 12px 30px rgba(0,0,0,0.45);
   }
 
-  /* Modal */
   .modal-backdrop{
     position:fixed; inset:0; background:rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index:9999;
   }
@@ -70,7 +68,6 @@
   <div class="card" role="main" aria-labelledby="title">
     <h1 id="title">Bienvenue</h1>
 
-    <!-- Morse mis en évidence et cliquable -->
     <p class="lead">
       <span id="morseText" class="morse" tabindex="0" role="button" aria-pressed="false" aria-label="Texte en morse cliquable">
         .- -. - .-. . / - --- -. / .--. ..- ... . -.. --- / .--. --- ..- .-. / -.-. --- -. - .. -. ..- . .-. .-.-.- / ... .. / - ..- / - .- .--. . ... / ..- -. / -- --- - / ... .--. . -.-. .. .- .-.. --..-- / ..- -. / . .- ... - . .-. -....- . --. --. / ... . / -.. . -.-. .-.. . -. -.-. .... . .-. .-
@@ -87,11 +84,10 @@
     <div class="hint">Astuce : essaye différents pseudos pour voir si quelque chose se passe.</div>
 
     <div id="fallback" class="fallback" style="display:none">
-      Si la redirection locale est bloquée, ouvre manuellement : <a id="fallbackLink" class="fallback-link" href="#" target="_blank" rel="noopener">ouvrir le fichier local</a>
+      Si la redirection automatique échoue, ouvre manuellement : <a id="fallbackLink" class="fallback-link" href="#" target="_blank" rel="noopener">ouvrir la page</a>
     </div>
   </div>
 
-  <!-- Modal popup -->
   <div id="modalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-hidden="true">
     <div class="modal" role="document" aria-labelledby="modalTitle">
       <h2 id="modalTitle">Petit message</h2>
@@ -104,9 +100,9 @@
   </div>
 
 <script>
-  // Rappels des chemins locaux (inchangés)
-  const bertrandLocal = 'C:/Users/fatih/Desktop/htmldiscord/bertrand.html';
-  const turkoLocal = 'C:/Users/fatih/Desktop/htmldiscord/siteweb.html';
+  // Chemins relatifs pour GitHub Pages
+  const bertrandPage = 'bertrand.html';
+  const turkoPage = 'siteweb.html';
 
   // Éléments
   const form = document.getElementById('pseudoForm');
@@ -124,67 +120,44 @@
   function normalize(text){ return String(text || '').trim().toLowerCase(); }
   function showMessage(text, color){ msg.style.display='block'; msg.textContent=text; msg.style.color = color || '#ffd27a'; }
 
-  // Afficher modal
+  // Modal
   function openModal(){
     modalBackdrop.style.display = 'flex';
     modalBackdrop.setAttribute('aria-hidden','false');
-    // focus sur le bouton OK pour accessibilité
     modalOk.focus();
   }
-
-  // Fermer modal
   function closeModal(){
     modalBackdrop.style.display = 'none';
     modalBackdrop.setAttribute('aria-hidden','true');
-    // remettre le focus sur le texte morse
     morseText.focus();
   }
-
-  // Click sur le texte morse ouvre le popup
-  morseText.addEventListener('click', () => {
-    openModal();
-  });
-
-  // Permet ouverture via clavier (Entrée ou Espace)
+  morseText.addEventListener('click', openModal);
   morseText.addEventListener('keydown', (e) => {
     if(e.key === 'Enter' || e.key === ' '){
       e.preventDefault();
       openModal();
     }
   });
-
-  // Fermeture du modal
   modalClose.addEventListener('click', closeModal);
   modalOk.addEventListener('click', closeModal);
+  modalBackdrop.addEventListener('click', (e) => { if(e.target === modalBackdrop) closeModal(); });
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape' && modalBackdrop.style.display === 'flex') closeModal(); });
 
-  // Fermer en cliquant en dehors de la boîte
-  modalBackdrop.addEventListener('click', (e) => {
-    if(e.target === modalBackdrop) closeModal();
-  });
-
-  // Fermer avec Échap
-  document.addEventListener('keydown', (e) => {
-    if(e.key === 'Escape' && modalBackdrop.style.display === 'flex') closeModal();
-  });
-
-  // Formulaire et redirections (même logique que précédemment)
-  function tryLocalRedirect(url){
-    showMessage('Easter‑egg détecté — tentative d’ouverture du fichier local...', '#bfe6ff');
-    try {
-      window.location.assign(url);
-    } catch (err) {
-      showMessage('Impossible d’ouvrir directement le fichier local.', '#ffd27a');
-      fallback.style.display = 'block';
-      fallbackLink.href = url;
-      fallbackLink.textContent = url;
-      return;
-    }
+  // Redirection sûre pour le web
+  function redirectTo(url){
+    // Affiche message, puis redirige
+    showMessage('Redirection en cours...', '#bfe6ff');
+    // Met à jour le fallback au cas où
+    fallback.style.display = 'none';
+    fallbackLink.href = url;
+    fallbackLink.textContent = url;
+    // Redirection
+    window.location.href = url;
+    // Si le navigateur bloque (rare pour chemins relatifs), affiche fallback après un délai
     setTimeout(() => {
-      showMessage('La redirection locale a peut‑être été bloquée par le navigateur.', '#ffd27a');
       fallback.style.display = 'block';
-      fallbackLink.href = url;
-      fallbackLink.textContent = url;
-    }, 900);
+      showMessage('La redirection automatique a échoué. Ouvre la page manuellement si nécessaire.', '#ffd27a');
+    }, 1200);
   }
 
   function normalFlow(){
@@ -195,8 +168,7 @@
       count--;
       if(count < 0){
         clearInterval(interval);
-        showMessage('Redirection...', '#bfe6ff');
-        try { window.location.assign(turkoLocal); } catch (err) { window.location.href = 'sitweb.html'; }
+        redirectTo(turkoPage);
       }
     }, 600);
   }
@@ -205,17 +177,16 @@
     e.preventDefault();
     const pseudo = normalize(input.value);
     if(!pseudo){ showMessage('Entre un pseudo pour continuer.', '#ffd27a'); return; }
-    if(pseudo === 'bertrand'){ tryLocalRedirect(bertrandLocal); return; }
-    if(pseudo === 'turko'){ tryLocalRedirect(turkoLocal); return; }
+    if(pseudo === 'bertrand'){ redirectTo(bertrandPage); return; }
+    if(pseudo === 'turko'){ redirectTo(turkoPage); return; }
     normalFlow();
   });
 
   skipBtn.addEventListener('click', () => {
     showMessage('Redirection directe...', '#bfe6ff');
-    setTimeout(() => { try { window.location.assign(turkoLocal); } catch (err) { window.location.href = 'sitweb.html'; } }, 300);
+    setTimeout(() => redirectTo(turkoPage), 300);
   });
 
-  // Focus initial
   window.addEventListener('load', () => input.focus());
 </script>
 </body>

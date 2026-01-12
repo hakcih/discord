@@ -34,6 +34,8 @@ body {
     height:32px;
     background:#222;
     cursor:pointer;
+    border-radius:4px;
+    transition:background .12s;
 }
 
 .step.active {
@@ -47,6 +49,7 @@ body {
 #status {
     margin-top:10px;
     font-weight:bold;
+    color:#ffd27a;
 }
 </style>
 </head>
@@ -57,19 +60,19 @@ body {
 
 <div class="controls">
     <button id="play">▶ Play</button>
-    BPM <input type="number" id="bpm" value="120">
+    BPM <input type="number" id="bpm" value="120" min="30" max="300" style="width:70px">
 </div>
 
-<div class="grid" id="grid"></div>
+<div class="grid" id="grid" aria-label="Grille de batterie"></div>
 
 <!-- BOUTON FINISH IA -->
 <div style="margin-top:30px;">
     <button id="finish">🤖 Finish – Évaluation IA</button>
-    <div id="status"></div>
+    <div id="status" role="status" aria-live="polite"></div>
 </div>
 
 <script>
-/* ---------- SONS ---------- */
+/* ---------- SONS (chemins relatifs) ---------- */
 const tracks = [
     { name:"Kick", file:"asset/Kick VY 48.wav" },
     { name:"Snare", file:"asset/Snare VY 08.wav" },
@@ -81,9 +84,24 @@ const tracks = [
 const steps = 16;
 let stepIndex = 0;
 let playing = false;
-let timer;
+let timer = null;
 
 const grid = document.getElementById("grid");
+const playBtn = document.getElementById("play");
+const bpmInput = document.getElementById("bpm");
+const status = document.getElementById("status");
+
+/* ---------- PRECHARGER LES SONS ---------- */
+tracks.forEach(t => {
+    // crée un objet audio pour préchargement et réutilisation
+    t.audioPool = [];
+    for (let i = 0; i < 6; i++) { // petit pool pour permettre notes rapides
+        const a = new Audio(t.file);
+        a.preload = 'auto';
+        t.audioPool.push(a);
+    }
+    t.poolIndex = 0;
+});
 
 /* ---------- CRÉATION GRILLE ---------- */
 tracks.forEach(track => {
@@ -95,8 +113,18 @@ tracks.forEach(track => {
     for (let i = 0; i < steps; i++) {
         const cell = document.createElement("div");
         cell.className = "step";
+        cell.setAttribute('role','button');
+        cell.setAttribute('aria-pressed','false');
+        cell.tabIndex = 0;
         cell.addEventListener("click", () => {
             cell.classList.toggle("active");
+            cell.setAttribute('aria-pressed', String(cell.classList.contains('active')));
+        });
+        cell.addEventListener("keydown", (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                cell.click();
+            }
         });
         grid.appendChild(cell);
     }
@@ -111,51 +139,98 @@ function playStep() {
     tracks.forEach((track, t) => {
         const index = t * steps + stepIndex;
         const cell = allSteps[index];
+        if (!cell) return;
 
         cell.classList.add("playing");
 
         if (cell.classList.contains("active")) {
-            const audio = new Audio(track.file);
-            audio.currentTime = 0;
-            audio.play();
+            // utilise le pool audio pour éviter latence et coupures
+            const pool = track.audioPool;
+            const a = pool[track.poolIndex % pool.length];
+            track.poolIndex++;
+            try {
+                a.currentTime = 0;
+            } catch (err) {
+                // certains navigateurs bloquent currentTime avant interaction, on ignore
+            }
+            a.play().catch(() => {
+                // play() peut être bloqué si pas d'interaction utilisateur ; on ignore silencieusement
+            });
         }
     });
 
     stepIndex = (stepIndex + 1) % steps;
 }
 
-document.getElementById("play").onclick = () => {
-    if (!playing) {
-        const bpm = document.getElementById("bpm").value;
-        const interval = (60 / bpm) * 1000 / 4;
-        timer = setInterval(playStep, interval);
-        playing = true;
-        play.textContent = "⏸ Stop";
-    } else {
-        clearInterval(timer);
-        playing = false;
-        stepIndex = 0;
-        play.textContent = "▶ Play";
-        allSteps.forEach(s => s.classList.remove("playing"));
-    }
-};
+function startPlayback() {
+    const bpm = Math.max(30, Math.min(300, Number(bpmInput.value) || 120));
+    const interval = (60 / bpm) * 1000 / 4; // 16 steps per bar (4 subdivisions)
+    if (timer) clearInterval(timer);
+    timer = setInterval(playStep, interval);
+    playing = true;
+    playBtn.textContent = "⏸ Stop";
+    status.textContent = "Lecture en cours";
+}
 
-/* ---------- FINISH IA (FAKE) ---------- */
+function stopPlayback() {
+    if (timer) clearInterval(timer);
+    timer = null;
+    playing = false;
+    stepIndex = 0;
+    playBtn.textContent = "▶ Play";
+    allSteps.forEach(s => s.classList.remove("playing"));
+    status.textContent = "Arrêté";
+}
+
+playBtn.addEventListener('click', () => {
+    // Demande interaction utilisateur pour autoriser audio sur certains navigateurs
+    if (!playing) {
+        startPlayback();
+    } else {
+        stopPlayback();
+    }
+});
+
+/* ---------- FINISH IA (redirection relative) ---------- */
 const finishBtn = document.getElementById("finish");
-const status = document.getElementById("status");
 
 finishBtn.onclick = () => {
     status.textContent = "⏳ Analyse IA du beat...";
     finishBtn.disabled = true;
 
     setTimeout(() => {
-        status.textContent = "pue ca grand mere ";
+        status.textContent = "Analyse terminée — résultat : intéressant";
     }, 2000);
 
+    // redirection relative vers 2.html (doit exister à la racine du dépôt)
     setTimeout(() => {
-        window.location.href = "C:/Users/fatih/Desktop/htmldiscord/2.html";
+        window.location.href = "2.html";
     }, 3500);
 };
+
+/* ---------- Astuce : sauvegarde / chargement (optionnel) ---------- */
+/* Exemple simple pour exporter l'état de la grille en JSON dans la console */
+function exportPattern() {
+    const pattern = [];
+    for (let t = 0; t < tracks.length; t++) {
+        const row = [];
+        for (let s = 0; s < steps; s++) {
+            const idx = t * steps + s;
+            row.push(allSteps[idx].classList.contains('active') ? 1 : 0);
+        }
+        pattern.push(row);
+    }
+    return pattern;
+}
+
+/* raccourci clavier : E pour exporter pattern dans la console */
+document.addEventListener('keydown', (e) => {
+    if (e.key.toLowerCase() === 'e') {
+        console.log('Pattern export:', exportPattern());
+        status.textContent = 'Pattern exporté dans la console';
+        setTimeout(() => status.textContent = '', 1500);
+    }
+});
 </script>
 
 </body>

@@ -70,7 +70,20 @@
     letter-spacing:1.4px;
   }
 
-  /* animation keyframes will be injected by JS to match content height */
+  .controls{
+    position:absolute;
+    left:24px;
+    bottom:18px;
+    display:flex;
+    gap:8px;
+    align-items:center;
+  }
+
+  .btn{
+    padding:8px 12px;border-radius:8px;border:none;background:linear-gradient(90deg,#00c6ff,#0072ff);color:#001;font-weight:700;cursor:pointer;
+  }
+  .btn.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);color:#bfe6ff}
+
   @media (prefers-reduced-motion: reduce){
     .column{animation:none !important}
   }
@@ -83,24 +96,41 @@
 </head>
 <body>
   <div class="stage" role="region" aria-label="Crédits">
-    <div class="viewport" id="viewport">
+    <div class="viewport" id="viewport" aria-hidden="false">
       <div id="blockA" class="column" aria-hidden="false"></div>
       <div id="blockB" class="column" aria-hidden="true"></div>
+    </div>
+
+    <div class="controls" aria-hidden="false">
+      <button id="pauseBtn" class="btn secondary" aria-pressed="false">Pause</button>
+      <button id="fasterBtn" class="btn" title="Accélérer">+</button>
+      <button id="slowerBtn" class="btn" title="Ralentir">−</button>
+    </div>
+  </div>
+
+  <!-- Modal (info/help) -->
+  <div id="modalBackdrop" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;z-index:9999" role="dialog" aria-modal="true" aria-hidden="true">
+    <div style="width:min(520px,92vw);background:linear-gradient(180deg,#07172a,#0b2546);border-radius:12px;padding:20px;border:1px solid rgba(255,255,255,0.06);box-shadow:0 30px 80px rgba(0,0,0,0.7);color:var(--text)">
+      <h2 style="margin-bottom:8px;color:#bfe6ff;font-size:1.05rem">Contrôles</h2>
+      <p style="margin-bottom:16px;color:rgba(255,255,255,0.9)">Espace pour pause/reprise, flèches haut/bas pour ajuster la vitesse. Utilise les boutons en bas pour contrôler manuellement.</p>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button id="modalClose" style="padding:8px 12px;border-radius:8px;border:none;background:linear-gradient(90deg,#ff9a76,#ff6b6b);color:#001;font-weight:700;cursor:pointer">Fermer</button>
+      </div>
     </div>
   </div>
 
 <script>
-  // Exact phrase requested
-  const phrase = "javais pas  didée jai fait un truc aleatoir donnez moi des idee svp";
+  // Texte principal
+  const phrase = "javais pas didée jai fait un truc aleatoir donnez moi des idee svp";
 
-  // Build content: repeat the phrase and a few short supporting lines for rhythm
+  // Contenu réutilisable
   const contentLines = [
     {type:'phrase', text: phrase},
     {type:'name', text: 'turko'},
     {type:'line', text: 'un peu de code'},
     {type:'line', text: 'quelques beats'},
     {type:'line', text: 'des essais aléatoires'},
-    {type:'line', text: 'merci d\'avoir regardé'},
+    {type:'line', text: "merci d'avoir regardé"},
     {type:'final', text: 'SAYER JARRETE'}
   ];
 
@@ -109,12 +139,10 @@
 
   function buildBlock(target){
     target.innerHTML = '';
-    // top spacer so content starts below the viewport
     const spacerTop = document.createElement('div');
     spacerTop.style.height = '40vh';
     target.appendChild(spacerTop);
 
-    // repeat content several times to create a long scroll
     for(let r=0; r<6; r++){
       contentLines.forEach(item => {
         const el = document.createElement('div');
@@ -127,7 +155,6 @@
       });
     }
 
-    // bottom spacer so the loop looks smooth
     const spacerBottom = document.createElement('div');
     spacerBottom.style.height = '40vh';
     target.appendChild(spacerBottom);
@@ -136,15 +163,15 @@
   buildBlock(blockA);
   buildBlock(blockB);
 
-  // Create animation dynamically so it matches the block height
-  let speed = 1; // multiplier (1 = normal)
+  // Animation dynamique
+  let speed = 1; // 1 = normal
+  let paused = false;
   function applyAnimation(){
     const h = blockA.getBoundingClientRect().height;
-    const baseSeconds = Math.max(8, h / 120); // base duration scales with height
+    const baseSeconds = Math.max(8, h / 120);
     const duration = baseSeconds / speed;
     const animName = 'scrollAnim';
 
-    // remove previous style if exists
     const styleId = 'scrollStyle';
     let styleEl = document.getElementById(styleId);
     if(styleEl) styleEl.remove();
@@ -162,19 +189,36 @@
     const anim = `${animName} ${duration}s linear infinite`;
     blockA.style.animation = anim;
     blockB.style.animation = anim;
-
-    // position blockB directly after blockA for seamless loop
     blockB.style.transform = 'translateY(' + h + 'px)';
+    blockA.style.animationPlayState = paused ? 'paused' : 'running';
+    blockB.style.animationPlayState = paused ? 'paused' : 'running';
   }
 
   applyAnimation();
 
-  // Simple keyboard controls: space to pause/resume, up/down to change speed
-  let paused = false;
+  // Controls
+  const pauseBtn = document.getElementById('pauseBtn');
+  const fasterBtn = document.getElementById('fasterBtn');
+  const slowerBtn = document.getElementById('slowerBtn');
+
+  pauseBtn.addEventListener('click', () => {
+    paused = !paused;
+    pauseBtn.textContent = paused ? 'Reprendre' : 'Pause';
+    pauseBtn.setAttribute('aria-pressed', String(paused));
+    blockA.style.animationPlayState = paused ? 'paused' : 'running';
+    blockB.style.animationPlayState = paused ? 'paused' : 'running';
+  });
+
+  fasterBtn.addEventListener('click', () => { speed = Math.min(4, speed + 0.25); applyAnimation(); });
+  slowerBtn.addEventListener('click', () => { speed = Math.max(0.25, speed - 0.25); applyAnimation(); });
+
+  // Keyboard shortcuts: Space = pause, ArrowUp = faster, ArrowDown = slower, ? = open help
   document.addEventListener('keydown', (e) => {
     if(e.key === ' '){
       e.preventDefault();
       paused = !paused;
+      pauseBtn.textContent = paused ? 'Reprendre' : 'Pause';
+      pauseBtn.setAttribute('aria-pressed', String(paused));
       blockA.style.animationPlayState = paused ? 'paused' : 'running';
       blockB.style.animationPlayState = paused ? 'paused' : 'running';
     } else if(e.key === 'ArrowUp'){
@@ -183,10 +227,29 @@
     } else if(e.key === 'ArrowDown'){
       speed = Math.max(0.25, speed - 0.25);
       applyAnimation();
+    } else if(e.key === '?'){
+      openModal();
     }
   });
 
-  // Recalculate on resize
+  // Modal logic (help)
+  const modalBackdrop = document.getElementById('modalBackdrop');
+  const modalClose = document.getElementById('modalClose');
+
+  function openModal(){
+    modalBackdrop.style.display = 'flex';
+    modalBackdrop.setAttribute('aria-hidden','false');
+    modalClose.focus();
+  }
+  function closeModal(){
+    modalBackdrop.style.display = 'none';
+    modalBackdrop.setAttribute('aria-hidden','true');
+  }
+  modalClose.addEventListener('click', closeModal);
+  modalBackdrop.addEventListener('click', (e) => { if(e.target === modalBackdrop) closeModal(); });
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape' && modalBackdrop.style.display === 'flex') closeModal(); });
+
+  // Recalculate animation on resize
   window.addEventListener('resize', () => applyAnimation());
 </script>
 </body>
